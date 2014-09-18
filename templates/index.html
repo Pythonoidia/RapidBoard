@@ -1,0 +1,77 @@
+<!DOCTYPE HTML>
+<html>
+    <head>
+    <title>Tasker</title>
+    <script type="text/javascript" src="//code.jquery.com/jquery-1.4.2.min.js"></script>
+    <script type="text/javascript" src="//cdnjs.cloudflare.com/ajax/libs/socket.io/0.9.16/socket.io.min.js"></script>
+    <script type="text/javascript" charset="utf-8">
+        //$('#tasks_main').hide();
+        $(document).ready(function(){
+            namespace = '/test'; // change to an empty string to use the global namespace
+            var socket = io.connect('http://' + document.domain + ':' + location.port + namespace);
+
+            socket.on('add_task', function(msg) {
+                var new_task = $('<div class="tasks" id='+msg.id+'><br>New task is: ' + msg.data + ' id: '+msg.id+'<input class="claim" type="checkbox" id="check'+msg.id+'"></div>').hide();
+                $('#tasksdiv').prepend(new_task);
+                new_task.slideDown();
+
+                });
+
+            socket.on('log', function(msg) {
+                $('#log').append('<br>'+msg.data);
+                });
+
+            socket.on('claimed_task', function(msg) {
+                $('.tasks#'+msg.id+' input[class="claim"]').attr('disabled','disabled');
+                $('.tasks#'+msg.id).css('background-color', 'yellow');
+                $('.tasks#'+msg.id).append('Claimer:'+msg.username);
+                });
+
+
+            socket.on('done_task', function(msg) {
+                $('.tasks#'+msg.id).css('background-color', 'green');
+                });
+
+            // handlers for the different forms in the page
+            // these send data to the server in a variety of ways
+            $('form#username').submit(function(event) {
+                $('#username').hide();
+                $('#tasks_main').show();
+                socket.emit('username', {username: $('#username_field').val()});
+                $('#tasks_main').append("<div id='tasksdiv' style='width:auto;'></div>");
+                return false;
+                });
+            
+            $('#tasks_main').change(function(){
+                    $('.tasks input[type="checkbox"]').click(function(event){
+                        if($(this).hasClass('claim') && 
+                            $(this).is(':checked')
+                            ){
+                        $(this).parent().attr('disabled','disabled');
+                        $(this).parent().append('<input class="solved" type="checkbox">');
+                        socket.emit('take_task', {id: $(this).parent().attr('id'), username: $('#username_field').val()});
+                        }
+                        else if($(this).hasClass('solved')){
+                        $('#log').append( '<br><b>'+$('#username_field').val() +'</b> SOLVED: '+ $(this).parent().attr('id'));
+                        $(this).attr('disabled','disabled');
+                        socket.emit('end_task', {id: $(this).parent().attr('id')});
+                        }
+                        });
+                    });
+
+
+        });
+    </script>
+</head>
+<body>
+    <div id="username">
+    <form id="username" method='POST' action='#'>
+        <input type="text" name="username_field" id="username_field" placeholder="User">
+        <input type="submit" value="GO!"></div>
+    </form>
+    </div>
+    <div id='tasks_main' style="display: none;">
+    </div>
+<div id="log"></div>
+</body>
+</html>
