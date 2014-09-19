@@ -63,6 +63,8 @@ class Tasks(object):
 
 def background_thread():
     """Example of how to send server generated events to clients."""
+    """This thread should be an queue consumer"""
+    """Consuming instances put into queue bar multiple other watchers"""
     while True:
         time.sleep(2)
         print('emit!')
@@ -101,4 +103,4 @@ def propagate_end_Task(message):
     emit('done_task', {'id':message['id']}, broadcast=True)
 
 if __name__ == '__main__':
-    socketio.run(app, port=9090, host='hellgate.pl')
+    socketio.run(app, port=9090, host='127.0.0.1')
