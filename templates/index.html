@@ -22,6 +22,7 @@
                 });
 
             socket.on('claimed_task', function(msg) {
+                $('.tasks#'+msg.id+' input[class="claim"]').attr('checked', false);
                 $('.tasks#'+msg.id+' input[class="claim"]').attr('disabled','disabled');
                 $('.tasks#'+msg.id).css('background-color', 'yellow');
                 $('.tasks#'+msg.id).append('Claimer:'+msg.username);
@@ -47,11 +48,13 @@
                         if($(this).hasClass('claim') && 
                             $(this).is(':checked')
                             ){
+                        $(this).attr('checked', false);
                         $(this).parent().attr('disabled','disabled');
                         $(this).parent().append('<input class="solved" type="checkbox">');
                         socket.emit('take_task', {id: $(this).parent().attr('id'), username: $('#username_field').val()});
                         }
                         else if($(this).hasClass('solved')){
+                        $(this).attr('checked', false);
                         $('#log').append( '<br><b>'+$('#username_field').val() +'</b> SOLVED: '+ $(this).parent().attr('id'));
                         $(this).attr('disabled','disabled');
                         socket.emit('end_task', {id: $(this).parent().attr('id')});
