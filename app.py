@@ -29,7 +29,8 @@ class Tasks(object):
     {timestamp:'date',
     task:'information about task',
     severity:'1-6', #where 1 is the highest, defines color of background
-    solver:'username',
+    ####solver:'username',  NOT NEEDED ANYMORE, as claimer == solver
+    claimer:'username',
     requestor:'username',
     state:'done,ongoing,todo'
 
@@ -74,8 +75,7 @@ class Tasks(object):
         id = int(id)
         for key in new_data.keys():
             self.tasks[id][key] = new_data[key]
-        #socketio.emit('claimed_task', {'id':message['id'], 'username':message['username'], 'state':'ongoing'}, namespace='/test')
-        #emit('claimed_task', {'id':message['id'], 'username':message['username'], 'state':'ongoing'}, broadcast=True)
+        self.emit_task(id, self.tasks[id], modify=True)
 
     @staticmethod
     def get_timestamp():
@@ -83,33 +83,42 @@ class Tasks(object):
 
 
     @staticmethod
-    def emit_task(id, task, one_user=False):
+    def emit_task(id, task, one_user=False, modify=False):
         '''
         id, severity, state, data, 
         add timestamp
         '''
         additional_html=''
         if task['state'] == 'todo':
-            priority_colors = {1:'#FF0000', 2:'#DD3300', 3:'#DD8855', 4:'#DDAA77', 5:'#AAAA99', 6:'#AAAAAA'}
+            priority_colors = {1:'#FF0000', 2:'#DD3300', 3:'#DD8855', 4:'#DDAA77', 5:'#999999'}
             color = priority_colors[task['severity']]
-            additional_html=additional_html+'''Claim it: <input class="claim" type="checkbox" id="check{id}">'''.format(id=id)
+            additional_html=additional_html+''' Claim it: <input class="claim" type="checkbox" id="check{id}">'''.format(id=id)
         elif task['state'] == 'done':
-            additional_html=additional_html+''' Solved by: {}'''.format(task['solver'])
+            additional_html=additional_html+''' Solved by: {}'''.format(task['claimer'])
             color = 'green'
         elif task['state'] == 'ongoing':
+            additional_html=additional_html+''' Claimed by: {} Done: <input class="solved" type="checkbox">'''.format(task['claimer'])
             color = 'yellow'
         else:
             color = '00FFFF'
 
         html_code = '''\
-        <div class="tasks" id='{id}' style="background:{color}"> \
+<div class="tasks" id='{id}' style="background:{color}"> \
 <br>New task is: {content}, id: {id}, priority: {priority}, Requestor: {requestor}'''.format(id=id, state=task['state'], priority=task['severity'], color=color, content=task['content'], requestor=task['requestor'])
         end_code = html_code + additional_html + '</div>'
         print(end_code)
+
         if one_user:
-            emit('add_task', {'html': end_code})
+            if modify:
+                emit.emit('replace_task',  {'id':id, 'new_code':end_code})
+            else:
+                emit('add_task', {'new_code':end_code})
         else:
-            socketio.emit('add_task', {'html': end_code}, namespace='/test')
+            if modify:
+                socketio.emit('replace_task',  {'id':id, 'new_code':end_code}, namespace='/test')
+            else:
+                socketio.emit('add_task', {'new_code':end_code}, namespace='/test')
+            #emit('replace_task', {'id':id, 'new_code':end_code}, broadcast=True)
 
     def emit_all_tasks(self):
         for task in self._tasks:
@@ -144,13 +153,12 @@ def login(message):
 
 @socketio.on('take_task', namespace='/test')
 def propagate_take_task(message):
-    Tasks().modify_task(message['id'], {'username':message['username'], 'state':'ongoing'})
-    emit('claimed_task', {'id':message['id'], 'username':message['username'], 'state':'ongoing'}, broadcast=True)
+    pprint(message)
+    Tasks().modify_task(message['id'], {'claimer':message['user'], 'state':'ongoing'})
 
 @socketio.on('end_task', namespace='/test')
 def propagate_end_task(message):
-    Tasks().modify_task(message['id'], {'state':'done', 'solver':message['user']})
-    emit('done_task', {'id':message['id'], 'solver':message['user']}, broadcast=True)
+    Tasks().modify_task(message['id'], {'state':'done'})
 
 if __name__ == '__main__':
-    socketio.run(app, port=9090, host='hellgate.pl')
+    socketio.run(app, port=9095, host='hellgate.pl')
