@@ -94,18 +94,19 @@ class Tasks(object):
             color = priority_colors[task['severity']]
             html_elements.append(''' Claim it: <input class="claim" type="submit" value="Claim">'''.format(id=id))
         elif task['state'] == 'done':
-            html_elements.append(''' Solved by: {}'''.format(task['claimer']))
+            html_elements.append(''' Solved by: <b>{}</b>'''.format(task['claimer']))
             color = '#00CC00'
         elif task['state'] == 'ongoing':
-            html_elements.append(''' Claimed by: {} Done: <input class="solved" type="submit" value="Done">'''.format(task['claimer']))
+            html_elements.append(''' Claimed by: <b>{}</b> Done: <input class="solved" type="submit" value="Done">'''.format(task['claimer']))
             color = '#DBFF70'
         else:
             color = '#00FFFF'
-        html_elements.append('</div>')
-        html_elements.insert(0, '''\
-<div class="tasks" id='{id}' style="background:{color}"> \
-<br>New task is: {content}, id: {id}, priority: {priority}, Requestor: {requestor}'''.format(id=id, state=task['state'], priority=task['severity'], color=color, content=task['content'], requestor=task['requestor']))
-        end_code = ''.join(html_elements)
+        checks=''.join(html_elements)
+
+        end_code='''<div class="tasks" id='{id}' style="background:{color}"> \
+<font size="5"><b>Task:</b> {content}</font>
+<br>priority: {priority}, Requestor: {requestor} {checks} </div>'''.format(
+        id=id, state=task['state'], priority=task['severity'], color=color, content=task['content'], requestor=task['requestor'], checks=checks)
         pprint(end_code)
         if one_user:
             if modify:
@@ -175,5 +176,5 @@ if __name__ == '__main__':
     producer.start()
     consumer = Thread(target=consumer_thread)
     consumer.start()
-    socketio.run(app, port=9095, host='hellgate.pl')
+    socketio.run(app, port=9095, host='localhost')
     
