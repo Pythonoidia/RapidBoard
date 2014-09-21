@@ -11,7 +11,7 @@
             var socket = io.connect('http://' + document.domain + ':' + location.port + namespace);
 
             socket.on('add_task', function(msg) {
-                var new_task = $('<div class="tasks" id='+msg.id+'><br>New task is: ' + msg.data + ' id: '+msg.id+'<input class="claim" type="checkbox" id="check'+msg.id+'"></div>').hide();
+                var new_task = $(msg.html).hide();
                 $('#tasksdiv').prepend(new_task);
                 new_task.slideDown();
 
@@ -25,7 +25,7 @@
                 $('.tasks#'+msg.id+' input[class="claim"]').attr('checked', false);
                 $('.tasks#'+msg.id+' input[class="claim"]').attr('disabled','disabled');
                 $('.tasks#'+msg.id).css('background-color', 'yellow');
-                $('.tasks#'+msg.id).append('Claimer:'+msg.username);
+                $('.tasks#'+msg.id).append(' Claimer:'+msg.username);
                 });
 
 
