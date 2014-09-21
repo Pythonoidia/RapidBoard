@@ -75,6 +75,7 @@ class Tasks(object):
         for key in new_data.keys():
             self.tasks[id][key] = new_data[key]
         #socketio.emit('claimed_task', {'id':message['id'], 'username':message['username'], 'state':'ongoing'}, namespace='/test')
+        #emit('claimed_task', {'id':message['id'], 'username':message['username'], 'state':'ongoing'}, broadcast=True)
 
     @staticmethod
     def get_timestamp():
@@ -93,7 +94,7 @@ class Tasks(object):
             color = priority_colors[task['severity']]
             additional_html=additional_html+'''Claim it: <input class="claim" type="checkbox" id="check{id}">'''.format(id=id)
         elif task['state'] == 'done':
-            additional_html=additional_html+'''Solved by: {}'''.format('xD')
+            additional_html=additional_html+''' Solved by: {}'''.format(task['solver'])
             color = 'green'
         elif task['state'] == 'ongoing':
             color = 'yellow'
@@ -138,24 +139,18 @@ def index():
 
 @socketio.on('username', namespace='/test')
 def login(message):
-    session['receive_count'] = session.get('receive_count', 0) + 1
     emit('log', {'data': 'New user: '+ message['username']}, broadcast=True)
     Tasks().emit_all_tasks()
-#    tasks = Tasks().get_tasks()
-#    pprint(tasks)
-#    for task in tasks:
-#        emit('add_task', {'data': tasks[task]['data'], 'id': task, 'state':tasks[task]['state']})
 
 @socketio.on('take_task', namespace='/test')
 def propagate_take_task(message):
-    print(message)
     Tasks().modify_task(message['id'], {'username':message['username'], 'state':'ongoing'})
     emit('claimed_task', {'id':message['id'], 'username':message['username'], 'state':'ongoing'}, broadcast=True)
 
 @socketio.on('end_task', namespace='/test')
 def propagate_end_task(message):
-    Tasks().modify_task(message['id'], {'state':'done'})
-    emit('done_task', {'id':message['id']}, broadcast=True)
+    Tasks().modify_task(message['id'], {'state':'done', 'solver':message['user']})
+    emit('done_task', {'id':message['id'], 'solver':message['user']}, broadcast=True)
 
 if __name__ == '__main__':
-    socketio.run(app, port=9090, host='127.0.0.1')
+    socketio.run(app, port=9090, host='hellgate.pl')

@@ -5,24 +5,26 @@
     <script type="text/javascript" src="//code.jquery.com/jquery-1.4.2.min.js"></script>
     <script type="text/javascript" src="//cdnjs.cloudflare.com/ajax/libs/socket.io/0.9.16/socket.io.min.js"></script>
     <script type="text/javascript" charset="utf-8">
-        //$('#tasks_main').hide();
         $(document).ready(function(){
-            namespace = '/test'; // change to an empty string to use the global namespace
+            namespace = '/test';
             var socket = io.connect('http://' + document.domain + ':' + location.port + namespace);
 
             socket.on('add_task', function(msg) {
                 var new_task = $(msg.html).hide();
                 $('#tasksdiv').prepend(new_task);
                 new_task.slideDown();
-
                 });
 
             socket.on('log', function(msg) {
                 $('#log').append('<br>'+msg.data);
                 });
 
+            socket.on('replace_task', function(msg) {
+                $('.tasks#'+msg.id).replaceWith(msg);
+                });
+
+
             socket.on('claimed_task', function(msg) {
-                $('.tasks#'+msg.id+' input[class="claim"]').attr('checked', false);
                 $('.tasks#'+msg.id+' input[class="claim"]').attr('disabled','disabled');
                 $('.tasks#'+msg.id).css('background-color', 'yellow');
                 $('.tasks#'+msg.id).append(' Claimer:'+msg.username);
@@ -33,31 +35,29 @@
                 $('.tasks#'+msg.id).css('background-color', 'green');
                 });
 
-            // handlers for the different forms in the page
-            // these send data to the server in a variety of ways
+            ///TO THE SERVER SITE!
             $('form#username').submit(function(event) {
                 $('#username').hide();
                 $('#tasks_main').show();
+                //$('#add_task_manually').show();
                 socket.emit('username', {username: $('#username_field').val()});
                 $('#tasks_main').append("<div id='tasksdiv' style='width:auto;'></div>");
                 return false;
                 });
-            
+
             $('#tasks_main').change(function(){
                     $('.tasks input[type="checkbox"]').click(function(event){
                         if($(this).hasClass('claim') && 
-                            $(this).is(':checked')
+                            $(this).is(':checked') && !$(this).is(':disabled')
                             ){
-                        $(this).attr('checked', false);
-                        $(this).parent().attr('disabled','disabled');
+                        $(this).attr('disabled','disabled');
                         $(this).parent().append('<input class="solved" type="checkbox">');
                         socket.emit('take_task', {id: $(this).parent().attr('id'), username: $('#username_field').val()});
                         }
-                        else if($(this).hasClass('solved')){
-                        $(this).attr('checked', false);
+                        else if($(this).hasClass('solved') && !$(this).is(':disabled')){
                         $('#log').append( '<br><b>'+$('#username_field').val() +'</b> SOLVED: '+ $(this).parent().attr('id'));
                         $(this).attr('disabled','disabled');
-                        socket.emit('end_task', {id: $(this).parent().attr('id')});
+                        socket.emit('end_task', {id: $(this).parent().attr('id'), user: $('#username_field').val()});
                         }
                         });
                     });
@@ -72,6 +72,13 @@
         <input type="text" name="username_field" id="username_field" placeholder="User">
         <input type="submit" value="GO!"></div>
     </form>
+    </div>
+    <div id="add_task_manually" style="display: none;">
+    <form id="add_task_manually" method='POST' action='#'>
+        <input type="text" name="task_desctiption" id="task_description" placeholder="Task description">
+        <input type="submit" value="Post"></div>
+    </form>
+
     </div>
     <div id='tasks_main' style="display: none;">
     </div>
