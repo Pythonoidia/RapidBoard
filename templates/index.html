@@ -1,7 +1,7 @@
 <!DOCTYPE HTML>
 <html>
     <head>
-    <title>Tasker</title>
+    <title>RapidTasker</title>
     <script type="text/javascript" src="//code.jquery.com/jquery-2.1.1.min.js"></script>
     <script type="text/javascript" src="//cdnjs.cloudflare.com/ajax/libs/socket.io/0.9.16/socket.io.min.js"></script>
     <script type="text/javascript" charset="utf-8">
@@ -31,7 +31,6 @@
                 //$('#add_task_manually').show();
                 socket.emit('username', {username: $('#username_field').val()});
                 return false;
-
                 });
             
             $('#tasks_main').on('click', 'input.claim', function(event){
