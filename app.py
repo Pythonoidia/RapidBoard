@@ -92,12 +92,12 @@ class Tasks(object):
         if task['state'] == 'todo':
             priority_colors = {1:'#FF0000', 2:'#DD3300', 3:'#DD8855', 4:'#DDAA77', 5:'#999999'}
             color = priority_colors[task['severity']]
-            additional_html=additional_html+''' Claim it: <input class="claim" type="checkbox" id="check{id}">'''.format(id=id)
+            additional_html=additional_html+''' Claim it: <input class="claim" type="submit" value="Claim">'''.format(id=id)
         elif task['state'] == 'done':
             additional_html=additional_html+''' Solved by: {}'''.format(task['claimer'])
             color = 'green'
         elif task['state'] == 'ongoing':
-            additional_html=additional_html+''' Claimed by: {} Done: <input class="solved" type="checkbox">'''.format(task['claimer'])
+            additional_html=additional_html+''' Claimed by: {} Done: <input class="solved" type="submit" value="Done">'''.format(task['claimer'])
             color = 'yellow'
         else:
             color = '00FFFF'
@@ -130,11 +130,11 @@ def background_thread():
     """This thread should be an queue consumer
     Consuming instances put into queue bar multiple other watchers"""
     while True:
-        time.sleep(2)
         line = 'Errytime the same!'
         task_id = Tasks().add_task(
                 {'content': line, 'severity':random.randint(1, 5)})
         print(task_id)
+        time.sleep(5)
 
 
 @app.route('/')
@@ -158,6 +158,7 @@ def propagate_take_task(message):
 
 @socketio.on('end_task', namespace='/test')
 def propagate_end_task(message):
+    pprint('#'*60)
     Tasks().modify_task(message['id'], {'state':'done'})
 
 if __name__ == '__main__':
