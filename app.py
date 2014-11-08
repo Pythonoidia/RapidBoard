@@ -1,3 +1,10 @@
+'''
+TODO:
+
+add css for tasks priority instead of code generation
+also we do not have to generate htmls, js is providing ncie wrappers for creating html nodes
+dat db
+'''
 from __future__ import print_function
 from gevent import monkey
 monkey.patch_all()
@@ -6,8 +13,8 @@ import time
 from threading import Thread
 from flask import Flask, render_template, session
 from flask.ext.socketio import SocketIO, emit
+from flask.ext.sqlalchemy import SQLAlchemy
 import datetime
-import Queue
 
 from pprint import pprint
 import random
@@ -16,9 +23,40 @@ import random
 app = Flask(__name__)
 app.debug = True
 app.config['SECRET_KEY'] = 'secret!'
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:////tmp/tasker.db'
 socketio = SocketIO(app)
 thread = None
-task_queue = Queue.Queue(0)
+
+db = SQLAlchemy(app)
+
+
+#models
+class TasksDB(db.Model):
+    '''    'id': #unique
+        {timestamp:'date',
+        task:'information about task',
+        severity:'1-6', #where 1 is the highest, defines color of background
+        ####solver:'username',  NOT NEEDED ANYMORE, as claimer == solver
+        claimer:'username',
+        requestor:'username',
+        state:'done,ongoing,todo'
+    '''
+
+    __tablename__ = 'tasks'
+    ID = db.Column(db.Integer, primary_key=True)
+    timestamp = db.Column(db.String(20))
+    description = db.Column(db.String(200))
+    severity = db.Column(db.Integer)
+    claimer = db.Column(db.String(20))
+    requestor = db.Column(db.String(20))
+    state = db.Column(db.String(20))
+
+    def __unicode__(self):
+        return self.ID
+
+def init_db():
+    db.create_all(app=app)
+
 
 class Tasks(object):
     _tasks = {}
@@ -87,6 +125,7 @@ class Tasks(object):
         TODO:
             add timestamp
             ugly html generation, maybe templates would be better?
+            look at the top of the document
         '''
         html_elements=[]
         if task['state'] == 'todo':
@@ -123,40 +162,15 @@ class Tasks(object):
     def emit_all_tasks(self):
         for task in self._tasks:
             self.emit_task(task, self._tasks[task], one_user=True)
-    
-
-
-
-def example_producer_thread():
-    global task_queue
-    while True:
-        line = 'Errytime the same!'
-        task={'content': line, 'severity':random.randint(1, 5)}
-        pprint('Producing: ')
-        pprint(task)
-        task_queue.put(task)
-        time.sleep(random.randint(3, 8))
-
-def consumer_thread():
-    """This thread should be an queue consumer
-    Consuming instances put into queue bar multiple other watchers"""
-    global task_queue
-    while True:
-        while not task_queue.empty():
-            time.sleep(1)
-            task = task_queue.get()
-            pprint('Consuming: ')
-            pprint(task)
-            Tasks().add_task({'content': task['content'], 'severity':task['severity']})
-        time.sleep(1)
 
 
 @app.route('/')
 def index():
-
-
     return render_template('index.html')
 
+@socketio.on('add_task', namespace='/task')
+def add_task_socketio(task):
+    Tasks().add_task({'content': task['content'], 'severity':task['severity']})
 
 @socketio.on('username', namespace='/test')
 def login(message):
@@ -172,9 +186,5 @@ def propagate_end_task(message):
     Tasks().modify_task(message['id'], {'state':'done'})
 
 if __name__ == '__main__':
-    producer = Thread(target=example_producer_thread)
-    producer.start()
-    consumer = Thread(target=consumer_thread)
-    consumer.start()
+    #producer = Thread(target=example_producer_thread)
     socketio.run(app, port=9095, host='localhost')
-    
