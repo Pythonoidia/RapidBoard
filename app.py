@@ -4,6 +4,8 @@ TODO:
 add css for tasks priority instead of code generation
 also we do not have to generate htmls, js is providing ncie wrappers for creating html nodes
 dat db
+sorting implementation
+add timestamps
 '''
 from __future__ import print_function
 from gevent import monkey
@@ -15,7 +17,7 @@ from flask import Flask, render_template, session
 from flask.ext.socketio import SocketIO, emit
 from flask.ext.sqlalchemy import SQLAlchemy
 import datetime
-
+import os
 from pprint import pprint
 import random
 
@@ -31,7 +33,7 @@ db = SQLAlchemy(app)
 
 
 #models
-class TasksDB(db.Model):
+class DBTasks(db.Model):
     '''    'id': #unique
         {timestamp:'date',
         task:'information about task',
@@ -41,11 +43,10 @@ class TasksDB(db.Model):
         requestor:'username',
         state:'done,ongoing,todo'
     '''
-
     __tablename__ = 'tasks'
-    ID = db.Column(db.Integer, primary_key=True)
+    ID = db.Column(db.String(8), primary_key=True)
     timestamp = db.Column(db.String(20))
-    description = db.Column(db.String(200))
+    description = db.Column(db.String(2000))
     severity = db.Column(db.Integer)
     claimer = db.Column(db.String(20))
     requestor = db.Column(db.String(20))
@@ -60,13 +61,12 @@ def init_db():
 
 class Tasks(object):
     _tasks = {}
-    _id = []
     '''
     We are Borg.
     ####Task:
     'id': #unique
     {timestamp:'date',
-    task:'information about task',
+    content:'information about task',
     severity:'1-6', #where 1 is the highest, defines color of background
     ####solver:'username',  NOT NEEDED ANYMORE, as claimer == solver
     claimer:'username',
@@ -76,12 +76,10 @@ class Tasks(object):
     }
     '''
     def __init__(self):
+    #    tasksdb = TasksDB(request.form['title'], request.form['text'])
+    #        db.session.add(todo)
         self.tasks = self._tasks
-        if not self._id:
-            self._id.append(0)
-        self.id = self._id[0]
-        self.id += 1
-        self._id[0] = self.id
+        self.id = str(os.urandom(4).encode('hex'))
 
     def add_task(self, task):
         '''
@@ -97,6 +95,10 @@ class Tasks(object):
             task['requestor'] = 'Automata'
         self.tasks[self.id] = task
         self.emit_task(self.id, task)
+        db.session.add(DBTasks(ID=self.id, timestamp='timestamp',
+            description=str(task['content']), severity=task['severity'],
+            claimer='', requestor=task['requestor'], state=task['state']))
+        db.session.commit()
         return(self.id)
 
     def get_tasks(self):
@@ -109,7 +111,6 @@ class Tasks(object):
         '''
         new_data = {key:newvalue}
         '''
-        id = int(id)
         for key in new_data.keys():
             self.tasks[id][key] = new_data[key]
         self.emit_task(id, self.tasks[id], modify=True)
@@ -172,6 +173,11 @@ def index():
 def add_task_socketio(task):
     Tasks().add_task({'content': task['content'], 'severity':task['severity']})
 
+@socketio.on('add_task_manually', namespace='/test')
+def add_task_manually(msg):
+    print('###############')
+    Tasks().add_task({'content': msg['task_description'], 'requestor': msg['user'], 'severity': msg['priority']})
+
 @socketio.on('username', namespace='/test')
 def login(message):
     emit('log', {'data': 'New user: '+ message['username']}, broadcast=True)
@@ -186,5 +192,5 @@ def propagate_end_task(message):
     Tasks().modify_task(message['id'], {'state':'done'})
 
 if __name__ == '__main__':
-    #producer = Thread(target=example_producer_thread)
+    db.create_all() 
     socketio.run(app, port=9095, host='localhost')
