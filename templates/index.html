@@ -1,10 +1,13 @@
 <!DOCTYPE HTML>
 <html>
     <head>
+    <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='style.css') }}">
     <title>RapidTasker</title>
-    <script type="text/javascript" src="//code.jquery.com/jquery-2.1.1.min.js"></script>
+    <script type="text/javascript" src="{{ url_for('static', filename='jquery-2.1.1.min.js') }}"></script>
+    <script type="text/javascript" src="{{ url_for('static', filename='socket.io.min.js') }}"></script>
+    <!--<script type="text/javascript" src="//code.jquery.com/jquery-2.1.1.min.js"></script>
     <script type="text/javascript" src="//cdnjs.cloudflare.com/ajax/libs/socket.io/0.9.16/socket.io.min.js"></script>
-    <script type="text/javascript" charset="utf-8">
+    --><script type="text/javascript" charset="utf-8">
         $(document).ready(function(){
             namespace = '/test';
             var socket = io.connect('http://' + document.domain + ':' + location.port + namespace);
@@ -28,7 +31,8 @@
             $('form#username').submit(function(event) {
                 $('#username').hide();
                 $('#tasks_main').show();
-                //$('#add_task_manually').show();
+                $('#add_task_manually').show();
+                $('#task_description').focus();
                 socket.emit('username', {username: $('#username_field').val()});
                 return false;
                 });
@@ -39,19 +43,24 @@
             $('body').on('click', 'input.solved', function(event){
                     socket.emit('end_task', {id: $(this).parent().attr('id'), user: $('#username_field').val()});
                     });
+            $('form#add_task_manually').submit(function(event) {
+                    socket.emit('add_task_manually', {user: $('#username_field').val(), task_description: $('#task_description').val(), priority: $('#task_priority').val()});
+                    return false;
+                    });
         });
     </script>
 </head>
 <body>
     <div id="username">
     <form id="username" method='POST' action='#'>
-        <input type="text" name="username_field" id="username_field" placeholder="User">
+        <input type="text" name="username_field" id="username_field" placeholder="User" autofocus>
         <input type="submit" value="GO!"></div>
     </form>
     </div>
     <div id="add_task_manually" style="display: none;">
     <form id="add_task_manually" method='POST' action='#'>
-        <input type="text" name="task_desctiption" id="task_description" placeholder="Task description">
+        <input type="text" name="task_description" id="task_description" placeholder="Task description">
+        <input type="text" class='task_priority_textbox' name="task_priority" id="task_priority" value='3' placeholder="P">
         <input type="submit" value="Post"></div>
     </form>
     </div>
