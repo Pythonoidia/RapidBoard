@@ -13,6 +13,7 @@
                 var new_task = $(msg.new_code).hide();
                 $('#tasks_main').prepend(new_task);
                 new_task.slideDown();
+                $('#tasks_main > div').toArray().sort( function(a,b) { a.id - b.id } );
                 });
 
             socket.on('log', function(msg) {
@@ -39,6 +40,7 @@
             $('body').on('click', 'input.solved', function(event){
                     socket.emit('end_task', {id: $(this).parent().attr('id'), user: $('#username_field').val()});
                     });
+
         });
     </script>
 </head>

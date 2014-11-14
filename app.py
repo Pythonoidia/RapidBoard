@@ -142,7 +142,7 @@ class Tasks(object):
             color = '#00FFFF'
         checks=''.join(html_elements)
 
-        end_code='''<div class="tasks" id='{id}' style="background:{color}"> \
+        end_code='''<div class="tasks" id="{id}" priority="{priority}" style="background:{color}"> \
 <font size="5"><b>Task:</b> {content}</font>
 <br>priority: {priority}, Requestor: {requestor} {checks} </div>'''.format(
         id=id, state=task['state'], priority=task['severity'], color=color, content=task['content'], requestor=task['requestor'], checks=checks)
