@@ -5,9 +5,7 @@
     <title>RapidTasker</title>
     <script type="text/javascript" src="{{ url_for('static', filename='jquery-2.1.1.min.js') }}"></script>
     <script type="text/javascript" src="{{ url_for('static', filename='socket.io.min.js') }}"></script>
-    <!--<script type="text/javascript" src="//code.jquery.com/jquery-2.1.1.min.js"></script>
-    <script type="text/javascript" src="//cdnjs.cloudflare.com/ajax/libs/socket.io/0.9.16/socket.io.min.js"></script>
-    --><script type="text/javascript" charset="utf-8">
+    <script type="text/javascript" charset="utf-8">
         $(document).ready(function(){
             namespace = '/test';
             var socket = io.connect('http://' + document.domain + ':' + location.port + namespace);
@@ -16,23 +14,7 @@
                 var new_task = $(msg.new_code).hide();
                 $('#tasks_main').prepend(new_task);
                 new_task.slideDown();
-
-                    var myArray = $("#tasks_main div");
-                    var count = 0;
-                    myArray.sort(function (a, b) {
-                        a = parseInt($(a).attr("priority"), 10);
-                        b = parseInt($(b).attr("priority"), 10);
-                        count += 2;
-                        if(a > b) {
-                            return 1;
-                        } else if(a < b) {
-                            return -1;
-                        } else {
-                            return 0;
-                        }
-                    });
-                    $("#tasks_main").append(myArray);
-
+                sort_tasks();
                 });
 
             socket.on('log', function(msg) {
@@ -41,6 +23,7 @@
 
             socket.on('replace_task', function(msg) {
                 $('.tasks#'+msg.id).replaceWith(msg.new_code);
+                sort_tasks();
                 });
 
 
@@ -62,9 +45,25 @@
                     });
             $('form#add_task_manually').submit(function(event) {
                     socket.emit('add_task_manually', {user: $('#username_field').val(), task_description: $('#task_description').val(), priority: $('#task_priority').val()});
-
                     return false;
                     });
+            function sort_tasks(){
+            var Tasks = $("#tasks_main div");
+            Tasks.sort(function (a, b) {
+                a = parseInt($(a).attr("priority"));
+                b = parseInt($(b).attr("priority"));
+                if(a > b) {
+                    return 1;
+                } else if(a < b) {
+                    return -1;
+                } else {
+                    return 0;
+                }
+            });
+            $("#tasks_main").append(Tasks);
+
+            };
+
         });
     </script>
 </head>
@@ -77,8 +76,8 @@
     </div>
     <div id="add_task_manually" style="display: none;">
     <form id="add_task_manually" method='POST' action='#'>
-        <input type="text" name="task_description" id="task_description" placeholder="Task description">
-        <input type="text" class='task_priority_textbox' name="task_priority" id="task_priority" value='3' placeholder="P">
+        <input type="text" class="task_description" name="task_description" id="task_description" placeholder="Task description">
+        H<input type="range" class='task_priority_textbox' name="task_priority" id="task_priority" value="3" name="quantity" min="1" max="5" >L
         <input type="submit" value="Post"></div>
     </form>
     </div>
