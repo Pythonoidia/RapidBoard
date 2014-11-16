@@ -72,10 +72,12 @@ def add_task(task):
         task['severity'] = int(task['severity'])
     if 'requestor' not in task:
         task['requestor'] = 'Automata'
+    pprint(task)
     db.session.add(DBTasks(ID=task_id, timestamp='timestamp',
         content=str(task['content']), severity=task['severity'],
         claimer='', requestor=task['requestor'], state=task['state']))
     db.session.commit()
+    Tasks().emit_task(task_id, task)
 
 def emit_tasks():
     for task in DBTasks.query.all():
@@ -88,15 +90,20 @@ def modify_task(task_id, new_data):
     new_data = {key:newvalue}
     '''
     #DBTasks.query.filter(Clients.id == client_id_list).update({'status': status})
-    DBTasks.query.filter_by(ID=task_id).update(new_data)
-    task =  DBTasks.query.filter_by(ID=task_id).first()
     #task = db.session.query(DBTasks).filter(DBTasks.ID==task_id)
-    pprint(task.__dict__)
+    DBTasks.query.filter_by(ID=task_id).update(new_data)
     #task.update(new_data)
     #for key in new_data.keys():
     #    task.eval(key) = new_data[key]
     db.session.commit()
-    #    self.emit_task(id, self.tasks[id], modify=True)
+    task = DBTasks.query.filter_by(ID=task_id).first()
+    if not task:
+        print('for : {}'.format(task_id))
+    else:
+        pprint(task)
+        pprint(task.__dict__)
+        print('for : {}'.format(task_id))
+        Tasks().emit_task(task_id, task.__dict__, modify=True)
 
 
 
@@ -117,8 +124,6 @@ class Tasks(object):
     }
     '''
     def __init__(self):
-    #    tasksdb = TasksDB(request.form['title'], request.form['text'])
-    #        db.session.add(todo)
         self.tasks = self._tasks
         self.id = str(os.urandom(4).encode('hex'))
 
@@ -189,11 +194,11 @@ def index():
 
 @socketio.on('add_task', namespace='/task')
 def add_task_socketio(task):
-    Tasks().add_task({'content': task['content'], 'severity':task['severity']})
+    add_task({'content': task['content'], 'severity':task['severity']})
 
 @socketio.on('add_task_manually', namespace='/test')
 def add_task_manually(msg):
-    Tasks().add_task({'content': msg['task_description'], 'requestor': msg['user'], 'severity': msg['priority']})
+    add_task({'content': msg['task_description'], 'requestor': msg['user'], 'severity': msg['priority']})
 
 @socketio.on('username', namespace='/test')
 def login(message):
@@ -208,8 +213,12 @@ def propagate_take_task(message):
 
 @socketio.on('end_task', namespace='/test')
 def propagate_end_task(message):
-    Tasks().modify_task(message['id'], {'state':'done'})
+    #Tasks().modify_task(message['id'], {'state':'done'})
+    modify_task(message['id'], {'state':'done'})
 
 if __name__ == '__main__':
-    db.create_all() 
+    db.create_all()
+    #for task in DBTasks.query.all():
+    #    pprint(task.__dict__)
     socketio.run(app, port=9095, host='localhost')
+
