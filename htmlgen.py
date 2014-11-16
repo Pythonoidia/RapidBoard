@@ -5,8 +5,6 @@ class TaskHtml(object):
         self.task = task
         self.task_id = task_id
     def generate(self):
-        pprint('####')
-        pprint(self.task)
         html_elements=[]
         if self.task['state'] == 'todo':
             priority_colors = {1:'#FF0000', 2:'#DD3300', 3:'#DD8855', 4:'#DDAA77', 5:'#999999'}
