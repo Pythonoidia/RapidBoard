@@ -20,12 +20,12 @@ import datetime
 import os
 from pprint import pprint
 import random
-
+from htmlgen import TaskHtml
 
 app = Flask(__name__)
 app.debug = True
 app.config['SECRET_KEY'] = 'secret!'
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:////tmp/tasker.db'
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite://{0}/tasker.db'.format(os.path.dirname(__file__))
 socketio = SocketIO(app)
 thread = None
 
@@ -46,7 +46,7 @@ class DBTasks(db.Model):
     __tablename__ = 'tasks'
     ID = db.Column(db.String(8), primary_key=True)
     timestamp = db.Column(db.String(20))
-    description = db.Column(db.String(2000))
+    content = db.Column(db.String(2000))
     severity = db.Column(db.Integer)
     claimer = db.Column(db.String(20))
     requestor = db.Column(db.String(20))
@@ -57,6 +57,47 @@ class DBTasks(db.Model):
 
 def init_db():
     db.create_all(app=app)
+
+
+def add_task(task):
+    '''
+    adding task to db
+    '''
+    task_id = str(os.urandom(4).encode('hex'))
+    if 'state' not in task:
+        task['state'] = 'todo'
+    if 'severity' not in task:
+        task['severity'] = 5
+    else:
+        task['severity'] = int(task['severity'])
+    if 'requestor' not in task:
+        task['requestor'] = 'Automata'
+    db.session.add(DBTasks(ID=task_id, timestamp='timestamp',
+        content=str(task['content']), severity=task['severity'],
+        claimer='', requestor=task['requestor'], state=task['state']))
+    db.session.commit()
+
+def emit_tasks():
+    for task in DBTasks.query.all():
+        print(task.__dict__)
+        #node_code = TaskHtml(task.__dict__, task.ID).generate()
+        Tasks().emit_task(task.ID, task.__dict__, one_user=True)
+
+def modify_task(task_id, new_data):
+    '''
+    new_data = {key:newvalue}
+    '''
+    #DBTasks.query.filter(Clients.id == client_id_list).update({'status': status})
+    DBTasks.query.filter_by(ID=task_id).update(new_data)
+    task =  DBTasks.query.filter_by(ID=task_id).first()
+    #task = db.session.query(DBTasks).filter(DBTasks.ID==task_id)
+    pprint(task.__dict__)
+    #task.update(new_data)
+    #for key in new_data.keys():
+    #    task.eval(key) = new_data[key]
+    db.session.commit()
+    #    self.emit_task(id, self.tasks[id], modify=True)
+
 
 
 class Tasks(object):
@@ -93,12 +134,9 @@ class Tasks(object):
             task['severity'] = int(task['severity'])
         if 'requestor' not in task:
             task['requestor'] = 'Automata'
+        add_task(task)
         self.tasks[self.id] = task
         self.emit_task(self.id, task)
-        db.session.add(DBTasks(ID=self.id, timestamp='timestamp',
-            description=str(task['content']), severity=task['severity'],
-            claimer='', requestor=task['requestor'], state=task['state']))
-        db.session.commit()
         return(self.id)
 
     def get_tasks(self):
@@ -119,7 +157,6 @@ class Tasks(object):
     def get_timestamp():
         return datetime.datetime.now()
 
-
     @staticmethod
     def emit_task(id, task, one_user=False, modify=False):
         '''
@@ -128,36 +165,17 @@ class Tasks(object):
             ugly html generation, maybe templates would be better?
             look at the top of the document
         '''
-        html_elements=[]
-        if task['state'] == 'todo':
-            priority_colors = {1:'#FF0000', 2:'#DD3300', 3:'#DD8855', 4:'#DDAA77', 5:'#999999'}
-            color = priority_colors[task['severity']]
-            html_elements.append(''' Claim it: <input class="claim" type="submit" value="Claim">'''.format(id=id))
-        elif task['state'] == 'done':
-            html_elements.append(''' Solved by: <b>{}</b>'''.format(task['claimer']))
-            color = '#00CC00'
-        elif task['state'] == 'ongoing':
-            html_elements.append(''' Claimed by: <b>{}</b> Done: <input class="solved" type="submit" value="Done">'''.format(task['claimer']))
-            color = '#DBFF70'
-        else:
-            color = '#00FFFF'
-        checks=''.join(html_elements)
-
-        end_code='''<div class="tasks" id="{id}" priority="{priority}" style="background:{color}"> \
-<font size="5"><b>Task:</b> {content}</font>
-<br>priority: {priority}, Requestor: {requestor} {checks} </div>'''.format(
-        id=id, state=task['state'], priority=task['severity'], color=color, content=task['content'], requestor=task['requestor'], checks=checks)
-        pprint(end_code)
+        node_code = TaskHtml(task, id).generate()
         if one_user:
             if modify:
-                emit.emit('replace_task',  {'id':id, 'new_code':end_code})
+                emit.emit('replace_task',  {'id':id, 'new_code':node_code})
             else:
-                emit('add_task', {'new_code':end_code})
+                emit('add_task', {'new_code':node_code})
         else:
             if modify:
-                socketio.emit('replace_task',  {'id':id, 'new_code':end_code}, namespace='/test')
+                socketio.emit('replace_task',  {'id':id, 'new_code':node_code}, namespace='/test')
             else:
-                socketio.emit('add_task', {'new_code':end_code}, namespace='/test')
+                socketio.emit('add_task', {'new_code':node_code}, namespace='/test')
             #emit('replace_task', {'id':id, 'new_code':end_code}, broadcast=True)
 
     def emit_all_tasks(self):
@@ -175,17 +193,18 @@ def add_task_socketio(task):
 
 @socketio.on('add_task_manually', namespace='/test')
 def add_task_manually(msg):
-    print('###############')
     Tasks().add_task({'content': msg['task_description'], 'requestor': msg['user'], 'severity': msg['priority']})
 
 @socketio.on('username', namespace='/test')
 def login(message):
     emit('log', {'data': 'New user: '+ message['username']}, broadcast=True)
-    Tasks().emit_all_tasks()
+    emit_tasks()
+    #Tasks().emit_all_tasks()
 
 @socketio.on('take_task', namespace='/test')
 def propagate_take_task(message):
-    Tasks().modify_task(message['id'], {'claimer':message['user'], 'state':'ongoing'})
+    modify_task(message['id'], {'claimer':message['user'], 'state':'ongoing'})
+    #Tasks().modify_task(message['id'], {'claimer':message['user'], 'state':'ongoing'})
 
 @socketio.on('end_task', namespace='/test')
 def propagate_end_task(message):
