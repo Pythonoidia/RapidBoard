@@ -1,5 +1,7 @@
 .task_priority_textbox {
-        width: 30px;
+        width: 100px;
     }
-
+.task_description {
+        width: 500px;
+    }
 
