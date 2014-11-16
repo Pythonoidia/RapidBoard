@@ -4,6 +4,8 @@ TODO:
 add css for tasks priority instead of code generation
 also we do not have to generate htmls, js is providing ncie wrappers for creating html nodes
 dat db
+sorting implementation
+add timestamps
 '''
 from __future__ import print_function
 from gevent import monkey
@@ -15,15 +17,15 @@ from flask import Flask, render_template, session
 from flask.ext.socketio import SocketIO, emit
 from flask.ext.sqlalchemy import SQLAlchemy
 import datetime
-
+import os
 from pprint import pprint
 import random
-
+from htmlgen import TaskHtml
 
 app = Flask(__name__)
 app.debug = True
 app.config['SECRET_KEY'] = 'secret!'
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:////tmp/tasker.db'
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite://{0}/tasker.db'.format(os.path.dirname(__file__))
 socketio = SocketIO(app)
 thread = None
 
@@ -31,7 +33,7 @@ db = SQLAlchemy(app)
 
 
 #models
-class TasksDB(db.Model):
+class DBTasks(db.Model):
     '''    'id': #unique
         {timestamp:'date',
         task:'information about task',
@@ -41,11 +43,10 @@ class TasksDB(db.Model):
         requestor:'username',
         state:'done,ongoing,todo'
     '''
-
     __tablename__ = 'tasks'
-    ID = db.Column(db.Integer, primary_key=True)
+    ID = db.Column(db.String(8), primary_key=True)
     timestamp = db.Column(db.String(20))
-    description = db.Column(db.String(200))
+    content = db.Column(db.String(2000))
     severity = db.Column(db.Integer)
     claimer = db.Column(db.String(20))
     requestor = db.Column(db.String(20))
@@ -58,111 +59,62 @@ def init_db():
     db.create_all(app=app)
 
 
-class Tasks(object):
-    _tasks = {}
-    _id = []
+def add_task(task):
     '''
-    We are Borg.
-    ####Task:
-    'id': #unique
-    {timestamp:'date',
-    task:'information about task',
-    severity:'1-6', #where 1 is the highest, defines color of background
-    ####solver:'username',  NOT NEEDED ANYMORE, as claimer == solver
-    claimer:'username',
-    requestor:'username',
-    state:'done,ongoing,todo'
-
-    }
+    adding task to db
     '''
-    def __init__(self):
-        self.tasks = self._tasks
-        if not self._id:
-            self._id.append(0)
-        self.id = self._id[0]
-        self.id += 1
-        self._id[0] = self.id
+    task_id = str(os.urandom(4).encode('hex'))
+    if 'state' not in task:
+        task['state'] = 'todo'
+    if 'severity' not in task:
+        task['severity'] = 5
+    else:
+        task['severity'] = int(task['severity'])
+    if 'requestor' not in task:
+        task['requestor'] = 'Automata'
+    pprint(task)
+    db.session.add(DBTasks(ID=task_id, timestamp='timestamp',
+        content=str(task['content']), severity=task['severity'],
+        claimer='', requestor=task['requestor'], state=task['state']))
+    db.session.commit()
+    emit_task(task_id, task)
 
-    def add_task(self, task):
-        '''
-        adding task to class the storage and emiting it to clients
-        '''
-        if 'state' not in task:
-            task['state'] = 'todo'
-        if 'severity' not in task:
-            task['severity'] = 5
+def emit_all_tasks():
+    for task in DBTasks.query.all():
+        emit_task(task.ID, task.__dict__, one_user=True)
+
+def modify_task(task_id, new_data):
+    '''
+    new_data = {key:newvalue}
+    '''
+    DBTasks.query.filter_by(ID=task_id).update(new_data)
+    db.session.commit()
+    task = DBTasks.query.filter_by(ID=task_id).first()
+    if not task:
+        print('for : {}'.format(task_id))
+    else:
+        emit_task(task_id, task.__dict__, modify=True)
+
+
+
+def emit_task(id, task, one_user=False, modify=False):
+    '''
+    TODO:
+        add timestamp
+        ugly html generation, maybe templates would be better?
+        look at the top of the document
+    '''
+    node_code = TaskHtml(task, id).generate()
+    if one_user:
+        if modify:
+            emit.emit('replace_task',  {'id':id, 'new_code':node_code})
         else:
-            task['severity'] = int(task['severity'])
-        if 'requestor' not in task:
-            task['requestor'] = 'Automata'
-        self.tasks[self.id] = task
-        self.emit_task(self.id, task)
-        return(self.id)
-
-    def get_tasks(self):
-        '''
-        Returning all tasks which are stored in the class
-        '''
-        return(self.tasks)
-
-    def modify_task(self, id, new_data):
-        '''
-        new_data = {key:newvalue}
-        '''
-        id = int(id)
-        for key in new_data.keys():
-            self.tasks[id][key] = new_data[key]
-        self.emit_task(id, self.tasks[id], modify=True)
-
-    @staticmethod
-    def get_timestamp():
-        return datetime.datetime.now()
-
-
-    @staticmethod
-    def emit_task(id, task, one_user=False, modify=False):
-        '''
-        TODO:
-            add timestamp
-            ugly html generation, maybe templates would be better?
-            look at the top of the document
-        '''
-        html_elements=[]
-        if task['state'] == 'todo':
-            priority_colors = {1:'#FF0000', 2:'#DD3300', 3:'#DD8855', 4:'#DDAA77', 5:'#999999'}
-            color = priority_colors[task['severity']]
-            html_elements.append(''' Claim it: <input class="claim" type="submit" value="Claim">'''.format(id=id))
-        elif task['state'] == 'done':
-            html_elements.append(''' Solved by: <b>{}</b>'''.format(task['claimer']))
-            color = '#00CC00'
-        elif task['state'] == 'ongoing':
-            html_elements.append(''' Claimed by: <b>{}</b> Done: <input class="solved" type="submit" value="Done">'''.format(task['claimer']))
-            color = '#DBFF70'
+            emit('add_task', {'new_code':node_code})
+    else:
+        if modify:
+            socketio.emit('replace_task',  {'id':id, 'new_code':node_code}, namespace='/test')
         else:
-            color = '#00FFFF'
-        checks=''.join(html_elements)
-
-        end_code='''<div class="tasks" id="{id}" priority="{priority}" style="background:{color}"> \
-<font size="5"><b>Task:</b> {content}</font>
-<br>priority: {priority}, Requestor: {requestor} {checks} </div>'''.format(
-        id=id, state=task['state'], priority=task['severity'], color=color, content=task['content'], requestor=task['requestor'], checks=checks)
-        pprint(end_code)
-        if one_user:
-            if modify:
-                emit.emit('replace_task',  {'id':id, 'new_code':end_code})
-            else:
-                emit('add_task', {'new_code':end_code})
-        else:
-            if modify:
-                socketio.emit('replace_task',  {'id':id, 'new_code':end_code}, namespace='/test')
-            else:
-                socketio.emit('add_task', {'new_code':end_code}, namespace='/test')
-            #emit('replace_task', {'id':id, 'new_code':end_code}, broadcast=True)
-
-    def emit_all_tasks(self):
-        for task in self._tasks:
-            self.emit_task(task, self._tasks[task], one_user=True)
-
+            socketio.emit('add_task', {'new_code':node_code}, namespace='/test')
 
 @app.route('/')
 def index():
@@ -170,21 +122,26 @@ def index():
 
 @socketio.on('add_task', namespace='/task')
 def add_task_socketio(task):
-    Tasks().add_task({'content': task['content'], 'severity':task['severity']})
+    add_task({'content': task['content'], 'severity':task['severity']})
+
+@socketio.on('add_task_manually', namespace='/test')
+def add_task_manually(msg):
+    add_task({'content': msg['task_description'], 'requestor': msg['user'], 'severity': msg['priority']})
 
 @socketio.on('username', namespace='/test')
 def login(message):
     emit('log', {'data': 'New user: '+ message['username']}, broadcast=True)
-    Tasks().emit_all_tasks()
+    emit_all_tasks()
 
 @socketio.on('take_task', namespace='/test')
 def propagate_take_task(message):
-    Tasks().modify_task(message['id'], {'claimer':message['user'], 'state':'ongoing'})
+    modify_task(message['id'], {'claimer':message['user'], 'state':'ongoing'})
 
 @socketio.on('end_task', namespace='/test')
 def propagate_end_task(message):
-    Tasks().modify_task(message['id'], {'state':'done'})
+    modify_task(message['id'], {'state':'done'})
 
 if __name__ == '__main__':
-    #producer = Thread(target=example_producer_thread)
+    db.create_all()
     socketio.run(app, port=9095, host='localhost')
+
