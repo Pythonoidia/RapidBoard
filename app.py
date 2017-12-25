@@ -14,18 +14,20 @@ monkey.patch_all()
 import time
 from threading import Thread
 from flask import Flask, render_template, session
-from flask.ext.socketio import SocketIO, emit
-from flask.ext.sqlalchemy import SQLAlchemy
+from flask_socketio import SocketIO, emit
+from flask_sqlalchemy import SQLAlchemy
 import datetime
 import os
 from pprint import pprint
 import random
+import codecs
 from htmlgen import TaskHtml
 
 app = Flask(__name__)
 app.debug = True
 app.config['SECRET_KEY'] = 'secret!'
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite://{0}/tasker.db'.format(os.path.dirname(__file__))
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:////tasker.db'
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 socketio = SocketIO(app)
 thread = None
 
@@ -63,7 +65,7 @@ def add_task(task):
     '''
     adding task to db
     '''
-    task_id = str(os.urandom(4).encode('hex'))
+    task_id = codecs.encode(os.urandom(4), 'hex').decode("utf-8")
     if 'state' not in task:
         task['state'] = 'todo'
     if 'severity' not in task:
@@ -143,5 +145,5 @@ def propagate_end_task(message):
 
 if __name__ == '__main__':
     db.create_all()
-    socketio.run(app, port=9095, host='localhost')
+    socketio.run(app, port=80, host="0.0.0.0")
 
