@@ -5,3 +5,35 @@
         width: 500px;
     }
 
+.task {
+ width: 100px; height: 100px; padding: 0.5em; margin: 10px 10px 10px 0;
+ }
+
+html,body,.container {
+    height:100%;
+}
+.container {
+    display:table;
+    width: 100%;
+    box-sizing: border-box;
+    background: pink;
+}
+
+.row {
+    height: 100%;
+    display: table-row;
+    background: black;
+}
+
+.col-md-4 {
+    width: 30%;
+}
+
+.row .no-float {
+  display: table-cell;
+  float: none;
+}
+
+.task {
+z-index:1;
+}

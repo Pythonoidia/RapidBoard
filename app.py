@@ -126,8 +126,9 @@ def index():
 def add_task_socketio(task):
     add_task({'content': task['content'], 'severity':task['severity']})
 
-@socketio.on('add_task_manually', namespace='/test')
-def add_task_manually(msg):
+@socketio.on('add_task_manual', namespace='/test')
+def add_task_manual(msg):
+    print('called!')
     add_task({'content': msg['task_description'], 'requestor': msg['user'], 'severity': msg['priority']})
 
 @socketio.on('username', namespace='/test')

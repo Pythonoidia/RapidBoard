@@ -20,7 +20,7 @@ class TaskHtml(object):
         else:
             color = '#00FFFF'
         checks=''.join(html_elements)
-        end_code='''<div class="tasks" id="{id}" priority="{priority}" style="background:{color}"> \
+        end_code='''<div class="task draggable" id="{id}" priority="{priority}" style="background:{color}"> \
 <font size="5"><b>Task:</b> {content}</font>
 <br>priority: {priority}, Requestor: {requestor} {checks} </div>'''.format(
         id=self.task_id, state=self.task['state'], priority=self.task['severity'], color=color, content=self.task['content'], requestor=self.task['requestor'], checks=checks)
